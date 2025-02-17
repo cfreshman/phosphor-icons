@@ -21,6 +21,31 @@ const App: React.FC<any> = () => {
   const { fetchBookmarks } = useBookmarks();
 
   useEffect(() => {
+    // Debug auth state
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('sb-'));
+    console.log('All localStorage keys:', keys);
+    
+    // Get the auth token key
+    const authKey = keys.find(k => k.endsWith('-auth-token'));
+    const token = authKey ? JSON.parse(localStorage.getItem(authKey) || '{}').access_token : null;
+    
+    console.log('Token found:', !!token);
+    if (token) {
+      console.log('Token value:', token.slice(0, 20) + '...');
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/user`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        }
+      })
+      .then(r => {
+        console.log('Auth response status:', r.status);
+        return r.json();
+      })
+      .then(user => console.log('User data:', user))
+      .catch(err => console.error('Auth check failed:', err));
+    }
+
     fetchBookmarks();
   }, [fetchBookmarks]);
 

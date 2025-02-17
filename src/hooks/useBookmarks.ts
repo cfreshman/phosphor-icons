@@ -1,148 +1,210 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useRecoilState, useRecoilValue } from 'recoil';
-import { createClient } from '@supabase/supabase-js';
-import { bookmarksAtom, isBookmarkingAtom, Bookmark, iconWeightAtom, iconSizeAtom, iconColorAtom } from '@/state/atoms';
+import { bookmarksAtom, Bookmark, iconWeightAtom, iconSizeAtom, iconColorAtom } from '@/state/atoms';
+import { supabase } from '@/lib/supabase';
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+// Track if we've fetched bookmarks for the current session
+let currentSession: string | null = null;
+let isInitialFetchDone = false;
 
 const LOCAL_STORAGE_KEY = 'phosphor-bookmarks';
+let currentAuthState: boolean | null = null;
+let authChangeCallbacks: Set<(isAuthenticated: boolean) => void> = new Set();
+
+// Set up auth subscription at module level
+const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+  const isAuthenticated = !!session;
+  console.log('Auth state changed:', event, 'Session:', !!session, 'Previous:', currentAuthState);
+  
+  // Only trigger if auth state actually changed
+  if (currentAuthState !== isAuthenticated) {
+    console.log('Auth state actually changed, updating...');
+    currentAuthState = isAuthenticated;
+    // Reset session tracking on auth state change
+    currentSession = null;
+    isInitialFetchDone = false;
+    // Notify all subscribers
+    authChangeCallbacks.forEach(cb => cb(isAuthenticated));
+  }
+});
+
+// Initial session check
+supabase.auth.getSession().then(({ data: { session } }) => {
+  const isAuthenticated = !!session;
+  console.log('Initial session check:', !!session, 'Previous:', currentAuthState);
+  
+  // Only trigger if this is first check or state changed
+  if (currentAuthState === null || currentAuthState !== isAuthenticated) {
+    console.log('Initial auth state set, updating...');
+    currentAuthState = isAuthenticated;
+    // Notify all subscribers
+    authChangeCallbacks.forEach(cb => cb(isAuthenticated));
+  }
+});
+
+// Separate hook for auth state management
+function useAuthState(onAuthChange: (isAuthenticated: boolean) => void) {
+  useEffect(() => {
+    // Add callback to subscribers
+    authChangeCallbacks.add(onAuthChange);
+
+    return () => {
+      // Remove callback when component unmounts
+      authChangeCallbacks.delete(onAuthChange);
+    };
+  }, [onAuthChange]);
+
+  return currentAuthState;
+}
 
 export function useBookmarks() {
   const [bookmarks, setBookmarks] = useRecoilState(bookmarksAtom);
-  const [isBookmarking, setIsBookmarking] = useRecoilState(isBookmarkingAtom);
   const weight = useRecoilValue(iconWeightAtom);
   const size = useRecoilValue(iconSizeAtom);
   const color = useRecoilValue(iconColorAtom);
 
-  // Load initial bookmarks from localStorage
-  useEffect(() => {
-    const localBookmarks = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (localBookmarks) {
-      setBookmarks(JSON.parse(localBookmarks));
-    }
-  }, [setBookmarks]);
-
-  // Listen for auth state changes
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_UP') {
-        // Get local bookmarks
-        const localBookmarksStr = localStorage.getItem(LOCAL_STORAGE_KEY);
-        const localBookmarks: Bookmark[] = localBookmarksStr ? JSON.parse(localBookmarksStr) : [];
-        
-        if (localBookmarks.length > 0) {
-          // Get cloud bookmarks
-          const { data: cloudBookmarks, error } = await supabase
-            .from('bookmarks')
-            .select('icon_name')
-            .order('created_at', { ascending: false });
-
-          if (!error) {
-            // Find local bookmarks that don't exist in the cloud
-            const cloudIconNames = new Set(cloudBookmarks?.map(b => b.icon_name) || []);
-            const newBookmarks = localBookmarks.filter(b => !cloudIconNames.has(b.icon_name));
-
-            // Upload new bookmarks to Supabase
-            if (newBookmarks.length > 0) {
-              const { error: insertError } = await supabase
-                .from('bookmarks')
-                .insert(
-                  newBookmarks.map(b => ({
-                    icon_name: b.icon_name,
-                    metadata: b.metadata
-                  }))
-                );
-              
-              if (!insertError) {
-                console.log(`Synced ${newBookmarks.length} local bookmarks to cloud`);
-              }
-            }
-          }
-        }
-
-        // Clear local storage since everything is now in the cloud
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
-        
-        // Fetch the complete set of bookmarks from the cloud
-        await fetchBookmarks();
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
   const fetchBookmarks = useCallback(async () => {
+    console.log('=== useBookmarks: fetchBookmarks called ===');
     try {
       // First try to get user session
       const { data: { session } } = await supabase.auth.getSession();
       
+      // Check if we've already fetched for this session
       if (session?.user) {
+        if (currentSession === session.user.id && isInitialFetchDone) {
+          console.log('Bookmarks already fetched for current session, skipping');
+          return;
+        }
+        
         // User is logged in, fetch from Supabase
+        console.log('Fetching bookmarks from Supabase for user:', session.user.id);
         const { data, error } = await supabase
           .from('bookmarks')
           .select('*')
+          .eq('user_id', session.user.id)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching bookmarks:', error);
+          throw error;
+        }
+        console.log('Successfully loaded bookmarks:', data?.length || 0);
         setBookmarks(data as Bookmark[]);
+        // Update session tracking
+        currentSession = session.user.id;
+        isInitialFetchDone = true;
         // Clear local storage when we have cloud data
         localStorage.removeItem(LOCAL_STORAGE_KEY);
       } else {
+        if (isInitialFetchDone && !currentSession) {
+          console.log('Local bookmarks already loaded, skipping');
+          return;
+        }
+        
         // User is not logged in, load from localStorage
+        console.log('User not logged in, checking localStorage');
         const localBookmarks = localStorage.getItem(LOCAL_STORAGE_KEY);
         if (localBookmarks) {
+          console.log('Found local bookmarks:', JSON.parse(localBookmarks).length);
           setBookmarks(JSON.parse(localBookmarks));
+        } else {
+          console.log('No local bookmarks found');
+          setBookmarks([]);
         }
+        // Update tracking for local state
+        currentSession = null;
+        isInitialFetchDone = true;
       }
     } catch (error) {
       console.error('Error fetching bookmarks:', error);
+      setBookmarks([]);
     }
   }, [setBookmarks]);
 
-  const addBookmark = useCallback(async (iconName: string) => {
-    setIsBookmarking(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        // User is logged in, save to Supabase
-        const { error } = await supabase
-          .from('bookmarks')
-          .insert([{
-            icon_name: iconName,
-            metadata: { weight, size, color }
-          }]);
+  const handleAuthChange = useCallback((isAuthenticated: boolean) => {
+    console.log('=== useBookmarks: Auth state changed ===', { isAuthenticated });
+    if (!isAuthenticated) {
+      console.log('User signed out, clearing bookmarks');
+      setBookmarks([]);
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      currentSession = null;
+      isInitialFetchDone = false;
+    } else {
+      console.log('User signed in, loading bookmarks');
+      fetchBookmarks();
+    }
+  }, [setBookmarks, fetchBookmarks]);
 
-        if (error) throw error;
-        await fetchBookmarks();
-      } else {
+  const isAuthenticated = useAuthState(handleAuthChange);
+
+  const addBookmark = useCallback(async (iconName: string) => {
+    try {
+      // Get current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) throw sessionError;
+
+      // Create new bookmark object
+      const newBookmark: Bookmark = {
+        id: crypto.randomUUID(),
+        icon_name: iconName,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        metadata: { weight, size, color }
+      };
+
+      // Optimistically update local state
+      setBookmarks(prev => [...prev, newBookmark]);
+      
+      if (!session?.user) {
         // User is not logged in, save to localStorage
-        const newBookmark = {
-          id: crypto.randomUUID(),
-          icon_name: iconName,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          metadata: { weight, size, color }
-        };
-        const updatedBookmarks = [...bookmarks, newBookmark];
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedBookmarks));
-        setBookmarks(updatedBookmarks);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...bookmarks, newBookmark]));
+        return;
+      }
+
+      // First check if bookmark already exists
+      const { data: existing } = await supabase
+        .from('bookmarks')
+        .select('id')
+        .match({ user_id: session.user.id, icon_name: iconName })
+        .single();
+
+      if (existing) {
+        console.log('Bookmark already exists');
+        return;
+      }
+
+      // Add new bookmark to server with user_id
+      const { error: insertError } = await supabase
+        .from('bookmarks')
+        .insert([{
+          ...newBookmark,
+          user_id: session.user.id
+        }])
+        .select()
+        .single();
+
+      if (insertError) {
+        // Revert optimistic update on error
+        setBookmarks(prev => prev.filter(b => b.id !== newBookmark.id));
+        throw insertError;
       }
     } catch (error) {
       console.error('Error adding bookmark:', error);
-    } finally {
-      setIsBookmarking(false);
+      if (error instanceof Error) {
+        alert(error.message);
+      }
     }
-  }, [weight, size, color, bookmarks, setBookmarks, setIsBookmarking, fetchBookmarks]);
+  }, [weight, size, color, bookmarks, setBookmarks]);
 
   const removeBookmark = useCallback(async (iconName: string) => {
-    setIsBookmarking(true);
     try {
+      // Optimistically update local state
+      const bookmarkToRemove = bookmarks.find(b => b.icon_name === iconName);
+      if (!bookmarkToRemove) return;
+      
+      setBookmarks(prev => prev.filter(b => b.icon_name !== iconName));
+
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
@@ -150,22 +212,25 @@ export function useBookmarks() {
         const { error } = await supabase
           .from('bookmarks')
           .delete()
-          .match({ icon_name: iconName });
+          .match({ user_id: session.user.id, icon_name: iconName });
 
-        if (error) throw error;
-        await fetchBookmarks();
+        if (error) {
+          // Revert optimistic update on error
+          setBookmarks(prev => [...prev, bookmarkToRemove]);
+          throw error;
+        }
       } else {
-        // User is not logged in, remove from localStorage
+        // User is not logged in, update localStorage
         const updatedBookmarks = bookmarks.filter(b => b.icon_name !== iconName);
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedBookmarks));
-        setBookmarks(updatedBookmarks);
       }
     } catch (error) {
       console.error('Error removing bookmark:', error);
-    } finally {
-      setIsBookmarking(false);
+      if (error instanceof Error) {
+        alert(error.message);
+      }
     }
-  }, [bookmarks, setBookmarks, setIsBookmarking, fetchBookmarks]);
+  }, [bookmarks, setBookmarks]);
 
   const isBookmarked = useCallback((iconName: string) => {
     return bookmarks.some(bookmark => bookmark.icon_name === iconName);
@@ -173,7 +238,7 @@ export function useBookmarks() {
 
   return {
     bookmarks,
-    isBookmarking,
+    isAuthenticated,
     fetchBookmarks,
     addBookmark,
     removeBookmark,

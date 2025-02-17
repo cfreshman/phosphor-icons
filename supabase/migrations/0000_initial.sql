@@ -22,6 +22,8 @@ CREATE TABLE icon_embeddings (
 
 -- Grant permissions to service role
 GRANT ALL ON TABLE icon_embeddings TO service_role;
+GRANT SELECT ON TABLE icon_embeddings TO anon;
+GRANT SELECT ON TABLE icon_embeddings TO authenticated;
 
 CREATE TABLE bookmarks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -32,6 +34,10 @@ CREATE TABLE bookmarks (
     metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     UNIQUE(user_id, icon_name)
 );
+
+-- Grant permissions for bookmarks table
+GRANT ALL ON TABLE bookmarks TO authenticated;
+GRANT ALL ON TABLE bookmarks TO service_role;
 
 -- Create indexes
 CREATE INDEX idx_icon_embeddings_embedding ON icon_embeddings USING ivfflat (embedding vector_cosine_ops);
@@ -50,7 +56,7 @@ RETURNS TABLE (
     similarity float
 )
 LANGUAGE plpgsql
-SECURITY DEFINER -- This allows the function to run with the privileges of the owner
+SECURITY DEFINER -- Change to DEFINER security to always run with owner's privileges
 SET search_path = public
 AS $$
 BEGIN
@@ -75,12 +81,13 @@ ALTER TABLE icon_embeddings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
 
 -- Icon embeddings policies (readable by all, writable by service role)
+DROP POLICY IF EXISTS "Icon embeddings are readable by everyone" ON icon_embeddings;
 CREATE POLICY "Icon embeddings are readable by everyone"
     ON icon_embeddings
     FOR SELECT
-    TO PUBLIC
     USING (true);
 
+DROP POLICY IF EXISTS "Icon embeddings are writable by service role" ON icon_embeddings;
 CREATE POLICY "Icon embeddings are writable by service role"
     ON icon_embeddings
     FOR ALL

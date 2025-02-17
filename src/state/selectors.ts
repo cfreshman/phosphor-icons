@@ -3,7 +3,8 @@ import TinyColor from "tinycolor2";
 // @ts-ignore
 import Fuse from "fuse.js";
 import { IconCategory } from "@phosphor-icons/core";
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 
 import {
@@ -13,16 +14,12 @@ import {
   iconColorAtom,
   bookmarksAtom,
   isBookmarkingAtom,
-  Bookmark
+  Bookmark,
+  showBookmarksOnlyAtom
 } from "./atoms";
 import { IconEntry } from "@/lib";
 import { icons } from "@/lib/icons";
-
-// Initialize Supabase client
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from "@/lib/supabase";
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -100,6 +97,29 @@ export const textSearchResultsSelector = selector<SearchResult[]>({
   },
 });
 
+// Direct RPC call without Supabase client
+async function callMatchIcons(embedding: number[]) {
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/match_icons`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+    },
+    body: JSON.stringify({
+      query_embedding: embedding,
+      match_threshold: 0.25,
+      match_count: 100
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`RPC call failed: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
 // Semantic search selector
 export const semanticSearchResultsSelector = selector<SearchResult[]>({
   key: "semanticSearchResults",
@@ -108,23 +128,20 @@ export const semanticSearchResultsSelector = selector<SearchResult[]>({
     if (!query) return [];
     
     try {
+      console.log('Generating embedding for query:', query);
       const embedding = await generateEmbedding(query);
-      const { data, error } = await (supabase as SupabaseClient<Database>)
-        .rpc('match_icons', {
-          query_embedding: embedding,
-          match_threshold: 0.25,
-          match_count: 100
-        });
+      console.log('Generated embedding, calling match_icons...');
       
-      if (error) throw error;
+      const data = await callMatchIcons(embedding);
+      
+      if (!data || data.length === 0) {
+        console.log('No matches found from match_icons');
+        return [];
+      }
 
-      console.log('Semantic Search Results:', (data ?? []).map((match: VectorMatch) => ({
-        name: match.icon_name,
-        similarity: match.similarity,
-        metadata: icons.find(icon => icon.name === match.icon_name)?.tags
-      })));
+      console.log('Semantic Search Results:', data);
       
-      return (data ?? []).map((match: VectorMatch) => ({
+      return data.map((match: VectorMatch) => ({
         item: icons.find(icon => icon.name === match.icon_name)!,
         score: match.similarity
       }));
@@ -135,12 +152,24 @@ export const semanticSearchResultsSelector = selector<SearchResult[]>({
   }
 });
 
-// Combined hybrid search selector
-export const filteredQueryResultsSelector = selector<ReadonlyArray<IconEntry>>({
-  key: "filteredQueryResults",
+// Helper function to calculate cosine similarity
+function cosineSimilarity(a: number[], b: number[]): number {
+  const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
+  const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+  const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
+  return dotProduct / (magnitudeA * magnitudeB);
+}
+
+// Combined hybrid search selector (without bookmark filtering)
+export const searchResultsSelector = selector<ReadonlyArray<IconEntry>>({
+  key: "searchResults",
   get: async ({ get }) => {
     const query = get(searchQueryAtom).trim();
-    if (!query) return icons;
+
+    // Get search results
+    if (!query) {
+      return icons;
+    }
 
     // Get both text and semantic results
     const textResults = get(textSearchResultsSelector);
@@ -160,7 +189,7 @@ export const filteredQueryResultsSelector = selector<ReadonlyArray<IconEntry>>({
       resultMap.set(item.name, { 
         item, 
         score, 
-        isExact: score > 0.8, // Stricter threshold for exact matches
+        isExact: score > 0.8,
         matchType: 'text',
         originalScores: { text: score }
       });
@@ -190,24 +219,31 @@ export const filteredQueryResultsSelector = selector<ReadonlyArray<IconEntry>>({
       }
     });
 
-    const results = Array.from(resultMap.values())
+    return Array.from(resultMap.values())
       .sort((a, b) => {
         if (a.isExact && !b.isExact) return -1;
         if (!a.isExact && b.isExact) return 1;
         return b.score - a.score;
-      });
+      })
+      .map(result => result.item);
+  },
+});
 
-    console.log('Final Sorted Results:', results.map(r => ({
-      name: r.item.name,
-      score: r.score,
-      isExact: r.isExact,
-      matchType: r.matchType,
-      originalScores: r.originalScores,
-      tags: r.item.tags,
-      categories: r.item.categories
-    })));
+// Filtered results selector (applies bookmark filter)
+export const filteredQueryResultsSelector = selector<ReadonlyArray<IconEntry>>({
+  key: "filteredQueryResults",
+  get: ({ get }) => {
+    const results = get(searchResultsSelector);
+    const showBookmarksOnly = get(showBookmarksOnlyAtom);
+    const bookmarks = get(bookmarksAtom);
 
-    return results.map(result => result.item);
+    if (!showBookmarksOnly) {
+      return results;
+    }
+
+    return results.filter(icon => 
+      bookmarks.some(bookmark => bookmark.icon_name === icon.name)
+    );
   },
 });
 
@@ -265,84 +301,282 @@ export const resetSettingsSelector = selector<null>({
   },
 });
 
+// Helper to get the current auth token
+function getCurrentToken(): string | null {
+  const keys = Object.keys(localStorage).filter(k => k.startsWith('sb-'));
+  const authKey = keys.find(k => k.endsWith('-auth-token'));
+  return authKey ? JSON.parse(localStorage.getItem(authKey) || '{}').access_token : null;
+}
+
+// Direct HTTP calls for bookmark operations
+async function fetchUserBookmarks(userId: string) {
+  const token = getCurrentToken();
+  if (!token) throw new Error('No auth token found');
+
+  const response = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bookmarks?user_id=eq.${userId}&order=created_at.desc`,
+    {
+      headers: {
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${token}`
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch bookmarks: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+async function checkExistingBookmark(userId: string, iconName: string) {
+  const response = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bookmarks?user_id=eq.${userId}&icon_name=eq.${iconName}`,
+    {
+      headers: {
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${localStorage.getItem('sb-access-token')}`
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to check bookmark: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data[0] || null;
+}
+
+async function createBookmark(userId: string, iconName: string, metadata: any) {
+  const response = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bookmarks`,
+    {
+      method: 'POST',
+      headers: {
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${localStorage.getItem('sb-access-token')}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        icon_name: iconName,
+        metadata
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to create bookmark: ${response.status} ${response.statusText}`);
+  }
+}
+
+async function deleteBookmark(userId: string, iconName: string) {
+  const response = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bookmarks?user_id=eq.${userId}&icon_name=eq.${iconName}`,
+    {
+      method: 'DELETE',
+      headers: {
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${localStorage.getItem('sb-access-token')}`,
+        'Prefer': 'return=minimal'
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete bookmark: ${response.status} ${response.statusText}`);
+  }
+}
+
 // Bookmark operations
 export const bookmarkOperationsSelector = atomFamily<{
   fetchBookmarks: () => Promise<void>;
   addBookmark: (iconName: string) => Promise<void>;
   removeBookmark: (iconName: string) => Promise<void>;
-}, void>({
+}, string>({
   key: "bookmarkOperations",
-  default: ({ get, set }) => ({
-    fetchBookmarks: async () => {
-      const { data: bookmarks, error } = await supabase
-        .from('bookmarks')
-        .select('*')
-        .order('created_at', { ascending: false });
+  default: (param) => {
+    const callbacks = {
+      fetchBookmarks: async function(this: { get: any; set: any }) {
+        console.log('=== Fetching Bookmarks ===');
+        try {
+          // Get current token
+          const token = getCurrentToken();
+          console.log('Auth token exists:', !!token);
+          if (!token) {
+            console.log('No auth token found, clearing bookmarks');
+            this.set(bookmarksAtom, []);
+            return;
+          }
 
-      if (error) {
-        console.error('Error fetching bookmarks:', error);
-        return;
-      }
+          // Get user info
+          console.log('Fetching user info...');
+          const userResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/user`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+            }
+          });
 
-      set(bookmarksAtom, bookmarks as Bookmark[]);
-    },
+          console.log('User info response status:', userResponse.status);
+          if (!userResponse.ok) {
+            console.log('Failed to get user info:', userResponse.status);
+            this.set(bookmarksAtom, []);
+            return;
+          }
 
-    addBookmark: async (iconName: string) => {
-      set(isBookmarkingAtom, true);
-      try {
-        const { error } = await supabase
-          .from('bookmarks')
-          .insert([
+          const user = await userResponse.json();
+          console.log('Got user:', { id: user.id, email: user.email });
+
+          // Fetch bookmarks
+          console.log('Fetching bookmarks for user...');
+          const data = await fetchUserBookmarks(user.id);
+          console.log('Bookmarks loaded:', data.length);
+          this.set(bookmarksAtom, data as Bookmark[]);
+        } catch (error) {
+          console.error('Error fetching bookmarks:', error);
+          this.set(bookmarksAtom, []);
+        }
+      },
+
+      addBookmark: async function(this: { get: any; set: any }, iconName: string) {
+        this.set(isBookmarkingAtom, true);
+        try {
+          const token = getCurrentToken();
+          if (!token) {
+            throw new Error('User must be authenticated to add bookmarks');
+          }
+
+          // Get user info
+          const userResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/user`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+            }
+          });
+
+          if (!userResponse.ok) {
+            throw new Error('Failed to get user info');
+          }
+
+          const user = await userResponse.json();
+
+          // First check if bookmark already exists
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bookmarks?user_id=eq.${user.id}&icon_name=eq.${iconName}`,
             {
-              icon_name: iconName,
-              metadata: {
-                weight: get(iconWeightAtom),
-                size: get(iconSizeAtom),
-                color: get(iconColorAtom)
+              headers: {
+                'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${token}`
               }
             }
-          ]);
+          );
 
-        if (error) throw error;
-        
-        // Refresh bookmarks
-        const { data: bookmarks } = await supabase
-          .from('bookmarks')
-          .select('*')
-          .order('created_at', { ascending: false });
+          if (!response.ok) {
+            throw new Error('Failed to check existing bookmark');
+          }
+
+          const existing = await response.json();
+          if (existing.length > 0) {
+            console.log('Bookmark already exists');
+            return;
+          }
+
+          // Add new bookmark
+          const createResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bookmarks`,
+            {
+              method: 'POST',
+              headers: {
+                'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+              },
+              body: JSON.stringify({
+                user_id: user.id,
+                icon_name: iconName,
+                metadata: {
+                  weight: this.get(iconWeightAtom),
+                  size: this.get(iconSizeAtom),
+                  color: this.get(iconColorAtom)
+                }
+              })
+            }
+          );
+
+          if (!createResponse.ok) {
+            throw new Error('Failed to create bookmark');
+          }
           
-        set(bookmarksAtom, bookmarks as Bookmark[]);
-      } catch (error) {
-        console.error('Error adding bookmark:', error);
-      } finally {
-        set(isBookmarkingAtom, false);
-      }
-    },
+          // Refresh bookmarks
+          await this.get(bookmarkOperationsSelector(param)).fetchBookmarks.call(this);
+        } catch (error) {
+          console.error('Error adding bookmark:', error);
+          if (error instanceof Error) {
+            alert(error.message);
+          }
+        } finally {
+          this.set(isBookmarkingAtom, false);
+        }
+      },
 
-    removeBookmark: async (iconName: string) => {
-      set(isBookmarkingAtom, true);
-      try {
-        const { error } = await supabase
-          .from('bookmarks')
-          .delete()
-          .match({ icon_name: iconName });
+      removeBookmark: async function(this: { get: any; set: any }, iconName: string) {
+        this.set(isBookmarkingAtom, true);
+        try {
+          const token = getCurrentToken();
+          if (!token) {
+            throw new Error('User must be authenticated to remove bookmarks');
+          }
 
-        if (error) throw error;
-        
-        // Refresh bookmarks
-        const { data: bookmarks } = await supabase
-          .from('bookmarks')
-          .select('*')
-          .order('created_at', { ascending: false });
+          // Get user info
+          const userResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/user`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+            }
+          });
+
+          if (!userResponse.ok) {
+            throw new Error('Failed to get user info');
+          }
+
+          const user = await userResponse.json();
+
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bookmarks?user_id=eq.${user.id}&icon_name=eq.${iconName}`,
+            {
+              method: 'DELETE',
+              headers: {
+                'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${token}`,
+                'Prefer': 'return=minimal'
+              }
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error('Failed to delete bookmark');
+          }
           
-        set(bookmarksAtom, bookmarks as Bookmark[]);
-      } catch (error) {
-        console.error('Error removing bookmark:', error);
-      } finally {
-        set(isBookmarkingAtom, false);
+          // Refresh bookmarks
+          await this.get(bookmarkOperationsSelector(param)).fetchBookmarks.call(this);
+        } catch (error) {
+          console.error('Error removing bookmark:', error);
+          if (error instanceof Error) {
+            alert(error.message);
+          }
+        } finally {
+          this.set(isBookmarkingAtom, false);
+        }
       }
-    }
-  })
+    };
+
+    return callbacks;
+  }
 });
 
 // Helper selector to check if an icon is bookmarked

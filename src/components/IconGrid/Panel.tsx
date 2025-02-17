@@ -109,7 +109,7 @@ const ActionButton = (
 
 const Panel = () => {
   const [entry, setSelectionEntry] = useRecoilState(selectionEntryAtom);
-  const { isBookmarked, addBookmark, removeBookmark, isBookmarking, fetchBookmarks } = useBookmarks();
+  const { isBookmarked, addBookmark, removeBookmark, fetchBookmarks } = useBookmarks();
 
   useEffect(() => {
     fetchBookmarks();
@@ -337,7 +337,7 @@ const Panel = () => {
   };
 
   const handleBookmarkToggle = () => {
-    if (!entry || isBookmarking) return;
+    if (!entry) return;
     
     if (isBookmarked(entry.name)) {
       removeBookmark(entry.name);
@@ -373,7 +373,6 @@ const Panel = () => {
             <div className="detail-actions bookmark-row">
               <button
                 title={isBookmarked(entry.name) ? "Remove from bookmarks" : "Add to bookmarks"}
-                disabled={isBookmarking}
                 onClick={handleBookmarkToggle}
               >
                 <Star weight={isBookmarked(entry.name) ? "fill" : "regular"} size={24} />

@@ -83,10 +83,12 @@ const IconGridItem = (props: IconGridItemProps) => {
     >
       <div className="icon-grid-item-content">
         <Icon />
-        <div className="icon-name">{name}</div>
-        {(isNew || isUpdated) && (
-          <span className={`badge ${isNew ? "new" : "updated"}`}>•</span>
-        )}
+        <p>
+          <span className="name">{name}</span>
+          {(isNew || isUpdated) && (
+            <span className={`badge ${isNew ? "new" : "updated"}`}>•</span>
+          )}
+        </p>
         {isBookmarked(name) && (
           <div className="bookmark-indicator">
             <Star weight="fill" size={16} />

@@ -12,15 +12,42 @@ max_rows = 1000
 major_version = 15
 
 [auth]
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["https://localhost:3000"]
 jwt_expiry = 3600
 enable_signup = true
+enable_confirmations = false
 
 [auth.email]
 enable_signup = true
-double_confirm_changes = true
-enable_confirmations = true
+double_confirm_changes = false
+enable_confirmations = false
+
+[auth.external]
+apple_enabled = false
+azure_enabled = false
+bitbucket_enabled = false
+discord_enabled = false
+facebook_enabled = false
+github_enabled = false
+gitlab_enabled = false
+google_enabled = false
+keycloak_enabled = false
+linkedin_enabled = false
+notion_enabled = false
+spotify_enabled = false
+slack_enabled = false
+twitch_enabled = false
+twitter_enabled = false
+workos_enabled = false
+zoom_enabled = false
+
+[auth.jwt]
+enable_refresh = false
+refresh_token_rotation = false
+refresh_token_reuse_interval = 0
+
+[auth.sessions]
+enable_refresh = false
+refresh_token_rotation = false
 
 [storage]
 file_size_limit = "50MiB" 

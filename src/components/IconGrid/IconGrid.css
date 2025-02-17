@@ -143,10 +143,6 @@
   margin: auto;
 }
 
-.empty-list-box p {
-  margin-bottom: 0;
-}
-
 .empty-list-box {
   max-width: 80%;
   display: flex;
@@ -157,6 +153,17 @@
   padding: 32px;
   border-radius: 8px;
   background-color: var(--background-layer);
+  text-align: center;
+}
+
+.empty-list-box h3 {
+  margin: 0;
+  color: var(--foreground);
+}
+
+.empty-list-box p {
+  margin: 0;
+  color: var(--foreground-secondary);
 }
 
 .beacon {
@@ -381,9 +388,15 @@ figcaption > p {
   width: 100%;
 }
 
-.icon-name {
+.icon-grid-item-content p {
+  margin: 0;
   font-size: 0.875rem;
   color: var(--foreground-secondary);
+  text-align: center;
+}
+
+.icon-grid-item-content .name {
+  display: inline;
 }
 
 .bookmark-indicator {
@@ -399,11 +412,10 @@ figcaption > p {
 }
 
 .badge {
-  position: absolute;
-  top: -4px;
-  left: -4px;
-  font-size: 1.5rem;
-  line-height: 1;
+  display: inline;
+  font-size: 24px;
+  line-height: 0.5;
+  margin-left: 2px;
 }
 
 .badge.new {

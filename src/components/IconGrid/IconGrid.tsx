@@ -2,6 +2,7 @@ import { useRef, useEffect } from "react";
 import { useRecoilValue } from "recoil";
 import { motion, useAnimation } from "framer-motion";
 import { IconContext } from "@phosphor-icons/react";
+import { Star } from "@phosphor-icons/react";
 
 import {
   iconWeightAtom,
@@ -10,6 +11,7 @@ import {
   filteredQueryResultsSelector,
   isDarkThemeSelector,
   searchQueryAtom,
+  showBookmarksOnlyAtom,
 } from "@/state";
 import Notice from "@/components/Notice";
 
@@ -36,6 +38,7 @@ const IconGrid = (_: IconGridProps) => {
   const color = useRecoilValue(iconColorAtom);
   const isDark = useRecoilValue(isDarkThemeSelector);
   const query = useRecoilValue(searchQueryAtom);
+  const showBookmarksOnly = useRecoilValue(showBookmarksOnlyAtom);
   const filteredQueryResults = useRecoilValue(filteredQueryResultsSelector);
 
   const originOffset = useRef({ top: 0, left: 0 });
@@ -45,7 +48,20 @@ const IconGrid = (_: IconGridProps) => {
     controls.start("visible");
   }, [controls, filteredQueryResults]);
 
-  if (!filteredQueryResults.length)
+  if (!filteredQueryResults.length) {
+    if (showBookmarksOnly) {
+      return (
+        <Notice
+          type="warn"
+          message={
+            <>
+              No matching bookmarks. Tap the star in an icon's detail to bookmark it.
+            </>
+          }
+        />
+      );
+    }
+    
     return (
       <Notice
         type="warn"
@@ -59,6 +75,7 @@ const IconGrid = (_: IconGridProps) => {
         <TagCloud name="empty-state" tags={defaultSearchTags} />
       </Notice>
     );
+  }
 
   return (
     <IconContext.Provider value={{ weight, size, color, mirrored: false }}>

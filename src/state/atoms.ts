@@ -116,3 +116,8 @@ export const isBookmarkingAtom = atom<boolean>({
   key: "isBookmarking",
   default: false
 });
+
+export const showBookmarksOnlyAtom = atom<boolean>({
+  key: "showBookmarksOnly",
+  default: false
+});
