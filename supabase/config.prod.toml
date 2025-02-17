@@ -1,0 +1,26 @@
+# Production environment configuration
+project_id = "phosphor"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+major_version = 15
+
+[auth]
+site_url = "https://phosphoricons.com"
+additional_redirect_urls = ["https://phosphoricons.com"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
+[storage]
+file_size_limit = "50MiB" 
