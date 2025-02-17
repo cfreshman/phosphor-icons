@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useRecoilState, useRecoilValue } from 'recoil';
 import { bookmarksAtom, Bookmark, iconWeightAtom, iconSizeAtom, iconColorAtom } from '@/state/atoms';
 import { supabase } from '@/lib/supabase';
@@ -12,7 +12,7 @@ let currentAuthState: boolean | null = null;
 let authChangeCallbacks: Set<(isAuthenticated: boolean) => void> = new Set();
 
 // Set up auth subscription at module level
-const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+supabase.auth.onAuthStateChange(async (event, session) => {
   const isAuthenticated = !!session;
   console.log('Auth state changed:', event, 'Session:', !!session, 'Previous:', currentAuthState);
   

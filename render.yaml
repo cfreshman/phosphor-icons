@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: phosphor
+    env: static
+    buildCommand: pnpm install && pnpm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: true
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: VITE_OPENAI_API_KEY
+        sync: false
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache 

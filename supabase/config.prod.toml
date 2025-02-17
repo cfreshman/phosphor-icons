@@ -12,42 +12,67 @@ max_rows = 1000
 major_version = 15
 
 [auth]
-jwt_expiry = 3600
-enable_signup = true
-enable_confirmations = false
+site_url = "https://phosphor.onrender.com"
+additional_redirect_urls = [
+  "https://phosphor.onrender.com",
+  "https://*.onrender.com"
+]
 
 [auth.email]
 enable_signup = true
 double_confirm_changes = false
 enable_confirmations = false
 
-[auth.external]
-apple_enabled = false
-azure_enabled = false
-bitbucket_enabled = false
-discord_enabled = false
-facebook_enabled = false
-github_enabled = false
-gitlab_enabled = false
-google_enabled = false
-keycloak_enabled = false
-linkedin_enabled = false
-notion_enabled = false
-spotify_enabled = false
-slack_enabled = false
-twitch_enabled = false
-twitter_enabled = false
-workos_enabled = false
-zoom_enabled = false
+[auth.external.apple]
+enabled = false
 
-[auth.jwt]
-enable_refresh = false
-refresh_token_rotation = false
-refresh_token_reuse_interval = 0
+[auth.external.azure]
+enabled = false
 
-[auth.sessions]
-enable_refresh = false
-refresh_token_rotation = false
+[auth.external.bitbucket]
+enabled = false
+
+[auth.external.discord]
+enabled = false
+
+[auth.external.facebook]
+enabled = false
+
+[auth.external.github]
+enabled = false
+
+[auth.external.gitlab]
+enabled = false
+
+[auth.external.google]
+enabled = false
+
+[auth.external.keycloak]
+enabled = false
+
+[auth.external.linkedin]
+enabled = false
+
+[auth.external.notion]
+enabled = false
+
+[auth.external.spotify]
+enabled = false
+
+[auth.external.slack]
+enabled = false
+
+[auth.external.twitch]
+enabled = false
+
+[auth.external.twitter]
+enabled = false
+
+[auth.external.workos]
+enabled = false
+
+[auth.external.zoom]
+enabled = false
 
 [storage]
 file_size_limit = "50MiB" 

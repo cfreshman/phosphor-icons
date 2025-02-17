@@ -3,8 +3,6 @@ import TinyColor from "tinycolor2";
 // @ts-ignore
 import Fuse from "fuse.js";
 import { IconCategory } from "@phosphor-icons/core";
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 
 import {
@@ -19,7 +17,6 @@ import {
 } from "./atoms";
 import { IconEntry } from "@/lib";
 import { icons } from "@/lib/icons";
-import { supabase } from "@/lib/supabase";
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -35,21 +32,6 @@ interface SearchResult {
 interface VectorMatch {
   icon_name: string;
   similarity: number;
-}
-
-interface Database {
-  public: {
-    Functions: {
-      match_icons: {
-        Args: {
-          query_embedding: number[];
-          match_threshold: number;
-          match_count: number;
-        };
-        Returns: VectorMatch[];
-      };
-    };
-  };
 }
 
 // Configure Fuse for exact/fuzzy text search
@@ -151,14 +133,6 @@ export const semanticSearchResultsSelector = selector<SearchResult[]>({
     }
   }
 });
-
-// Helper function to calculate cosine similarity
-function cosineSimilarity(a: number[], b: number[]): number {
-  const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
-  const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
-  const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-  return dotProduct / (magnitudeA * magnitudeB);
-}
 
 // Combined hybrid search selector (without bookmark filtering)
 export const searchResultsSelector = selector<ReadonlyArray<IconEntry>>({
@@ -328,67 +302,6 @@ async function fetchUserBookmarks(userId: string) {
   }
 
   return response.json();
-}
-
-async function checkExistingBookmark(userId: string, iconName: string) {
-  const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bookmarks?user_id=eq.${userId}&icon_name=eq.${iconName}`,
-    {
-      headers: {
-        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${localStorage.getItem('sb-access-token')}`
-      }
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to check bookmark: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return data[0] || null;
-}
-
-async function createBookmark(userId: string, iconName: string, metadata: any) {
-  const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bookmarks`,
-    {
-      method: 'POST',
-      headers: {
-        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${localStorage.getItem('sb-access-token')}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        icon_name: iconName,
-        metadata
-      })
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to create bookmark: ${response.status} ${response.statusText}`);
-  }
-}
-
-async function deleteBookmark(userId: string, iconName: string) {
-  const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/bookmarks?user_id=eq.${userId}&icon_name=eq.${iconName}`,
-    {
-      method: 'DELETE',
-      headers: {
-        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${localStorage.getItem('sb-access-token')}`,
-        'Prefer': 'return=minimal'
-      }
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to delete bookmark: ${response.status} ${response.statusText}`);
-  }
 }
 
 // Bookmark operations

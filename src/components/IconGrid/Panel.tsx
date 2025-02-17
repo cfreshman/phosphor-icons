@@ -17,8 +17,7 @@ import {
   XCircle,
   CaretDoubleLeft,
   CaretDoubleRight,
-  Star,
-  BookmarkSimple
+  Star
 } from "@phosphor-icons/react";
 import { IconStyle } from "@phosphor-icons/core";
 import ReactGA from "react-ga4";

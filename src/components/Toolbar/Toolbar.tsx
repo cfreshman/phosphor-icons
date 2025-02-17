@@ -1,6 +1,6 @@
 import React from "react";
 import { Star, CloudArrowUp, CloudCheck } from "@phosphor-icons/react";
-import { useRecoilState, useRecoilValue } from "recoil";
+import { useRecoilState } from "recoil";
 
 import StyleInput from "@/components/StyleInput";
 import SearchInput from "@/components/SearchInput";
@@ -9,15 +9,14 @@ import ColorInput from "@/components/ColorInput";
 import SettingsActions from "@/components/SettingsActions";
 import AuthPanel from "../AuthPanel";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import { selectionEntryAtom, searchQueryAtom, showBookmarksOnlyAtom } from "@/state";
+import { showBookmarksOnlyAtom } from "@/state";
 import { supabase, signOutFromAll } from "@/lib/supabase";
 import "./Toolbar.css";
 
 type ToolbarProps = {};
 
 const Toolbar: React.FC<ToolbarProps> = () => {
-  const [selection, setSelectionEntry] = useRecoilState(selectionEntryAtom);
-  const { bookmarks, fetchBookmarks } = useBookmarks();
+  const { fetchBookmarks } = useBookmarks();
   const [showBookmarksOnly, setShowBookmarksOnly] = useRecoilState(showBookmarksOnlyAtom);
   const [localBookmarksState, setLocalBookmarksState] = React.useState(false);
   const [isAuthenticating, setIsAuthenticating] = React.useState(false);

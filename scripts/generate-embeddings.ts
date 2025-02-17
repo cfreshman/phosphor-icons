@@ -7,15 +7,15 @@ import dotenv from 'dotenv'
 const env = process.env.NODE_ENV || 'development'
 dotenv.config({ path: `.env.${env}` })
 
-const { VITE_SUPABASE_URL, SUPABASE_SERVICE_KEY, OPENAI_API_KEY } = process.env
+const { VITE_SUPABASE_URL, SUPABASE_SERVICE_KEY, VITE_OPENAI_API_KEY } = process.env
 
-if (!VITE_SUPABASE_URL || !SUPABASE_SERVICE_KEY || !OPENAI_API_KEY) {
+if (!VITE_SUPABASE_URL || !SUPABASE_SERVICE_KEY || !VITE_OPENAI_API_KEY) {
   console.error('Missing required environment variables')
   process.exit(1)
 }
 
 const supabase = createClient(VITE_SUPABASE_URL, SUPABASE_SERVICE_KEY)
-const openai = new OpenAI({ apiKey: OPENAI_API_KEY })
+const openai = new OpenAI({ apiKey: VITE_OPENAI_API_KEY })
 
 async function generateEmbedding(text: string) {
   const response = await openai.embeddings.create({

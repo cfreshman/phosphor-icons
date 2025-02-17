@@ -33,7 +33,7 @@ const itemVariants = {
 };
 
 const IconGridItem = (props: IconGridItemProps) => {
-  const { index, originOffset, entry, style } = props;
+  const { index, originOffset, entry } = props;
   const { name, Icon } = entry;
   const [selection, setSelectionEntry] = useRecoilState(selectionEntryAtom);
   const { isBookmarked } = useBookmarks();
