@@ -97,3 +97,22 @@ export const selectionEntryAtom = atom<IconEntry | null>({
   key: "selectionEntry",
   default: null,
 });
+
+export interface Bookmark {
+  id: string;
+  user_id?: string;
+  icon_name: string;
+  created_at: string;
+  updated_at: string;
+  metadata: Record<string, any>;
+}
+
+export const bookmarksAtom = atom<Bookmark[]>({
+  key: "bookmarks",
+  default: []
+});
+
+export const isBookmarkingAtom = atom<boolean>({
+  key: "isBookmarking",
+  default: false
+});

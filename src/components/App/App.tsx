@@ -1,4 +1,4 @@
-import { Fragment, Suspense, useMemo } from "react";
+import { Fragment, Suspense, useMemo, useEffect } from "react";
 import { useRecoilValue } from "recoil";
 
 import "./App.css";
@@ -10,6 +10,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import Notice from "@/components/Notice";
 // import Recipes from "@/components/Recipes";
 import { useCSSVariables } from "@/hooks";
+import { useBookmarks } from "@/hooks/useBookmarks";
 import { isDarkThemeSelector } from "@/state";
 
 const errorFallback = <Notice message="Search error" />;
@@ -17,6 +18,11 @@ const waitingFallback = <Notice type="none" message="" />;
 
 const App: React.FC<any> = () => {
   const isDark = useRecoilValue(isDarkThemeSelector);
+  const { fetchBookmarks } = useBookmarks();
+
+  useEffect(() => {
+    fetchBookmarks();
+  }, [fetchBookmarks]);
 
   useCSSVariables(
     useMemo(

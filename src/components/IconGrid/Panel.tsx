@@ -17,12 +17,15 @@ import {
   XCircle,
   CaretDoubleLeft,
   CaretDoubleRight,
+  Star,
+  BookmarkSimple
 } from "@phosphor-icons/react";
 import { IconStyle } from "@phosphor-icons/core";
 import ReactGA from "react-ga4";
 
 import Tabs, { Tab } from "@/components/Tabs";
 import { useMediaQuery, useTransientState, useSessionStorage } from "@/hooks";
+import { useBookmarks } from "@/hooks/useBookmarks";
 import { SnippetType } from "@/lib";
 import {
   iconWeightAtom,
@@ -42,9 +45,9 @@ const variants: Record<string, Variants> = {
     exit: { y: 188 },
   },
   mobile: {
-    initial: { y: "60vh" },
-    animate: { y: 0 },
-    exit: { y: "60vh" },
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
   },
 };
 
@@ -79,9 +82,10 @@ const ActionButton = (
     label: string;
     download?: boolean;
     disabled?: boolean;
+    icon?: React.ReactNode;
   } & HTMLAttributes<HTMLButtonElement>
 ) => {
-  const { active, download, label, ...rest } = props;
+  const { active, download, label, icon, ...rest } = props;
   const Icon = download ? ArrowFatLinesDown : Copy;
   return (
     <button
@@ -93,7 +97,10 @@ const ActionButton = (
       {active ? (
         <CheckCircle size={20} color="var(--olive)" weight="fill" />
       ) : (
-        <Icon size={20} color="currentColor" weight="fill" />
+        <>
+          {icon}
+          <Icon size={20} color="currentColor" weight="fill" />
+        </>
       )}
       {label}
     </button>
@@ -102,6 +109,11 @@ const ActionButton = (
 
 const Panel = () => {
   const [entry, setSelectionEntry] = useRecoilState(selectionEntryAtom);
+  const { isBookmarked, addBookmark, removeBookmark, isBookmarking, fetchBookmarks } = useBookmarks();
+
+  useEffect(() => {
+    fetchBookmarks();
+  }, [fetchBookmarks]);
 
   const weight = useRecoilValue(iconWeightAtom);
   const size = useRecoilValue(iconSizeAtom);
@@ -324,17 +336,15 @@ const Panel = () => {
       });
   };
 
-  // const handleCopyDataPNG = async (
-  //   event: React.MouseEvent<HTMLButtonElement, MouseEvent>
-  // ) => {
-  //   event.currentTarget.blur();
-  //   if (!entry) return;
-  //   if (!ref.current) return;
-
-  //   const data = await Svg2Png.toDataURL(cloneWithSize(ref.current, size));
-  //   navigator.clipboard?.writeText(data);
-  //   setCopied(CopyType.PNG_DATA);
-  // };
+  const handleBookmarkToggle = () => {
+    if (!entry || isBookmarking) return;
+    
+    if (isBookmarked(entry.name)) {
+      removeBookmark(entry.name);
+    } else {
+      addBookmark(entry.name);
+    }
+  };
 
   return (
     <AnimatePresence initial={true}>
@@ -360,7 +370,15 @@ const Panel = () => {
                 </small>
               </figcaption>
             </figure>
-            <hr />
+            <div className="detail-actions bookmark-row">
+              <button
+                title={isBookmarked(entry.name) ? "Remove from bookmarks" : "Add to bookmarks"}
+                disabled={isBookmarking}
+                onClick={handleBookmarkToggle}
+              >
+                <Star weight={isBookmarked(entry.name) ? "fill" : "regular"} size={24} />
+              </button>
+            </div>
             <div className="detail-meta">
               <div className="detail-actions">
                 {!showMoreActions ? (

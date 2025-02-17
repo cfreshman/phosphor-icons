@@ -173,7 +173,26 @@ aside.detail-footer {
   grid-template-columns: 280px 1fr;
   gap: 24px;
   padding: 12px 24px;
-  height: 146px;
+}
+
+.detail-preview {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 12px;
+  padding-block: 8px;
+}
+
+/* Make tabs section take full height */
+.secondary.tabs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.secondary.tabs .tab-content {
+  height: auto;
+  max-height: none;
 }
 
 figure {
@@ -192,13 +211,6 @@ figcaption {
 
 figcaption > p {
   margin: 0;
-}
-
-.detail-preview {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding-block: 8px;
 }
 
 .detail-meta {
@@ -238,6 +250,45 @@ figcaption > p {
   margin-right: 6px;
 }
 
+.detail-actions.bookmark-row {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: 8px 0;
+  position: relative;
+}
+
+.detail-actions.bookmark-row button {
+  width: 100%;
+  height: 24px;
+  background-color: transparent;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border: none;
+  cursor: pointer;
+}
+
+.detail-actions.bookmark-row button::before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 1px;
+  background-color: var(--border-card);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.detail-actions.bookmark-row button svg {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: 4px;
+  background-color: var(--background-card);
+}
+
 @media screen and (max-width: 719px) {
   .grid-container {
     padding: 16px 8px;
@@ -249,17 +300,37 @@ figcaption > p {
   }
 
   aside.detail-footer {
-    top: 16px;
-    bottom: -20px;
+    position: sticky;
+    bottom: 0;
+    margin: 0;
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    height: 440px;
-    margin-inline: -10px;
-    border-radius: 0;
+    border-radius: 16px 16px 0 0;
+    height: 60vh;
+    overflow-y: auto;
+    background-color: var(--background-card);
+  }
+
+  .detail-preview {
+    flex-shrink: 0;
   }
 
   .detail-actions {
     display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .secondary.tabs {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .secondary.tabs .tab-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
 }
 
@@ -279,4 +350,78 @@ figcaption > p {
   .grid-item p {
     padding: 0 4px;
   }
+}
+
+.icon-grid-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.icon-grid-item:hover {
+  background-color: var(--background-layer);
+}
+
+.icon-grid-item.open {
+  background-color: var(--background-layer);
+}
+
+.icon-grid-item-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.icon-name {
+  font-size: 0.875rem;
+  color: var(--foreground-secondary);
+}
+
+.bookmark-indicator {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--foreground);
+}
+
+.badge {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.badge.new {
+  color: var(--green);
+}
+
+.badge.updated {
+  color: var(--blue);
+}
+
+/* Remove all custom bookmark styles */
+.bookmark-section,
+.bookmark-section:hover,
+.bookmark-section:disabled,
+.bookmark-section svg,
+.bookmark-action,
+.bookmark-action:hover,
+.bookmark-action:disabled {
+  /* Remove these styles */
+  display: none;
 }

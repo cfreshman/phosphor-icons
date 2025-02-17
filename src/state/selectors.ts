@@ -1,4 +1,4 @@
-import { selector, selectorFamily } from "recoil";
+import { selector, selectorFamily, atomFamily } from "recoil";
 import TinyColor from "tinycolor2";
 // @ts-ignore
 import Fuse from "fuse.js";
@@ -11,6 +11,9 @@ import {
   iconWeightAtom,
   iconSizeAtom,
   iconColorAtom,
+  bookmarksAtom,
+  isBookmarkingAtom,
+  Bookmark
 } from "./atoms";
 import { IconEntry } from "@/lib";
 import { icons } from "@/lib/icons";
@@ -260,4 +263,93 @@ export const resetSettingsSelector = selector<null>({
     reset(iconSizeAtom);
     reset(iconColorAtom);
   },
+});
+
+// Bookmark operations
+export const bookmarkOperationsSelector = atomFamily<{
+  fetchBookmarks: () => Promise<void>;
+  addBookmark: (iconName: string) => Promise<void>;
+  removeBookmark: (iconName: string) => Promise<void>;
+}, void>({
+  key: "bookmarkOperations",
+  default: ({ get, set }) => ({
+    fetchBookmarks: async () => {
+      const { data: bookmarks, error } = await supabase
+        .from('bookmarks')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching bookmarks:', error);
+        return;
+      }
+
+      set(bookmarksAtom, bookmarks as Bookmark[]);
+    },
+
+    addBookmark: async (iconName: string) => {
+      set(isBookmarkingAtom, true);
+      try {
+        const { error } = await supabase
+          .from('bookmarks')
+          .insert([
+            {
+              icon_name: iconName,
+              metadata: {
+                weight: get(iconWeightAtom),
+                size: get(iconSizeAtom),
+                color: get(iconColorAtom)
+              }
+            }
+          ]);
+
+        if (error) throw error;
+        
+        // Refresh bookmarks
+        const { data: bookmarks } = await supabase
+          .from('bookmarks')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        set(bookmarksAtom, bookmarks as Bookmark[]);
+      } catch (error) {
+        console.error('Error adding bookmark:', error);
+      } finally {
+        set(isBookmarkingAtom, false);
+      }
+    },
+
+    removeBookmark: async (iconName: string) => {
+      set(isBookmarkingAtom, true);
+      try {
+        const { error } = await supabase
+          .from('bookmarks')
+          .delete()
+          .match({ icon_name: iconName });
+
+        if (error) throw error;
+        
+        // Refresh bookmarks
+        const { data: bookmarks } = await supabase
+          .from('bookmarks')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        set(bookmarksAtom, bookmarks as Bookmark[]);
+      } catch (error) {
+        console.error('Error removing bookmark:', error);
+      } finally {
+        set(isBookmarkingAtom, false);
+      }
+    }
+  })
+});
+
+// Helper selector to check if an icon is bookmarked
+export const isBookmarkedSelector = selectorFamily<boolean, string>({
+  key: "isBookmarked",
+  get: (iconName: string) => ({ get }) => {
+    const bookmarks = get(bookmarksAtom);
+    return bookmarks.some(bookmark => bookmark.icon_name === iconName);
+  }
 });

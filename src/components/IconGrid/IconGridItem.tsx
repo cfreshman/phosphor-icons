@@ -7,9 +7,11 @@ import {
 } from "react";
 import { useRecoilState } from "recoil";
 import { motion } from "framer-motion";
+import { Star } from "@phosphor-icons/react";
 
 import { IconEntry } from "@/lib";
 import { selectionEntryAtom } from "@/state";
+import { useBookmarks } from "@/hooks/useBookmarks";
 
 interface IconGridItemProps extends HTMLAttributes<HTMLDivElement> {
   index: number;
@@ -34,6 +36,7 @@ const IconGridItem = (props: IconGridItemProps) => {
   const { index, originOffset, entry, style } = props;
   const { name, Icon } = entry;
   const [selection, setSelectionEntry] = useRecoilState(selectionEntryAtom);
+  const { isBookmarked } = useBookmarks();
   const isOpen = selection?.name === name;
   const isNew = entry.tags.includes("*new*");
   const isUpdated = entry.tags.includes("*updated*");
@@ -68,26 +71,29 @@ const IconGridItem = (props: IconGridItemProps) => {
   }, [originOffset]);
 
   return (
-    <motion.button
-      className="grid-item"
-      key={name}
+    <motion.div
       ref={ref}
-      style={{
-        ...style,
-        backgroundColor: isOpen ? "var(--background-layer)" : undefined,
-      }}
+      className={`icon-grid-item ${isOpen ? "open" : ""}`}
       custom={delayRef}
-      transition={transition}
+      initial="hidden"
+      animate="visible"
       variants={itemVariants}
+      transition={transition}
       onClick={handleOpen}
     >
-      <Icon />
-      <p>
-        <span className="name">{name}</span>
-        {isNew && <span className="badge new">•</span>}
-        {isUpdated && <span className="badge updated">•</span>}
-      </p>
-    </motion.button>
+      <div className="icon-grid-item-content">
+        <Icon />
+        <div className="icon-name">{name}</div>
+        {(isNew || isUpdated) && (
+          <span className={`badge ${isNew ? "new" : "updated"}`}>•</span>
+        )}
+        {isBookmarked(name) && (
+          <div className="bookmark-indicator">
+            <Star weight="fill" size={16} />
+          </div>
+        )}
+      </div>
+    </motion.div>
   );
 };
 
