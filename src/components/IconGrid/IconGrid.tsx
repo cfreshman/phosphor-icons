@@ -45,7 +45,20 @@ const IconGrid = (_: IconGridProps) => {
 
   useEffect(() => {
     controls.start("visible");
-  }, [controls, filteredQueryResults]);
+    // Scroll to top with offset when search results change
+    if (query) {
+      const toolbar = document.querySelector('.toolbar');
+      const gridContainer = document.querySelector('.grid-container');
+      if (toolbar && gridContainer) {
+        const toolbarHeight = toolbar.getBoundingClientRect().height;
+        const gridRect = gridContainer.getBoundingClientRect();
+        window.scrollTo({
+          top: gridRect.top + window.scrollY - toolbarHeight,
+          behavior: 'smooth'
+        });
+      }
+    }
+  }, [controls, filteredQueryResults, query]);
 
   if (!filteredQueryResults.length) {
     if (showBookmarksOnly) {
