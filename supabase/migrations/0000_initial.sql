@@ -50,6 +50,8 @@ RETURNS TABLE (
     similarity float
 )
 LANGUAGE plpgsql
+SECURITY DEFINER -- This allows the function to run with the privileges of the owner
+SET search_path = public
 AS $$
 BEGIN
     RETURN QUERY
@@ -63,6 +65,10 @@ BEGIN
     LIMIT match_count;
 END;
 $$;
+
+-- Grant execute permission on match_icons function to public
+GRANT EXECUTE ON FUNCTION match_icons(vector(1536), float, int) TO anon;
+GRANT EXECUTE ON FUNCTION match_icons(vector(1536), float, int) TO authenticated;
 
 -- Create RLS policies
 ALTER TABLE icon_embeddings ENABLE ROW LEVEL SECURITY;
