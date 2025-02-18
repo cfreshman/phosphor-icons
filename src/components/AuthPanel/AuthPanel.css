@@ -28,6 +28,12 @@
   -webkit-text-fill-color: var(--foreground);
 }
 
+@media screen and (max-width: 719px) {
+  .input-group input {
+    font-size: 16px;
+  }
+}
+
 .input-group input::placeholder {
   color: var(--foreground-secondary);
   -webkit-text-fill-color: var(--foreground-secondary);
@@ -61,6 +67,7 @@
   right: 0;
   padding: 16px;
   max-width: 1120px;
+  margin: auto;
   z-index: 1000;
 }
 
@@ -81,6 +88,7 @@
   .auth-panel-container {
     width: 100%;
     margin: 0;
+    padding: 0;
   }
 
   .auth-panel.detail-footer {

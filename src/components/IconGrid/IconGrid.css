@@ -358,7 +358,7 @@ figcaption > p {
   aside.detail-footer {
     position: sticky;
     bottom: 0;
-    margin: 0;
+    margin: 0 -8px;
     padding: 16px;
     display: flex;
     flex-direction: column;
@@ -366,6 +366,7 @@ figcaption > p {
     height: 60vh;
     overflow-y: auto;
     background-color: var(--background-card);
+    z-index: 1000;
   }
 
   .detail-preview {
