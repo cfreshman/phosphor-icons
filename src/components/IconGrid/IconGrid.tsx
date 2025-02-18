@@ -50,6 +50,10 @@ const defaultSearchTags = [
 ];
 
 const LoadingGrid = () => {
+  const weight = useRecoilValue(iconWeightAtom);
+  const size = useRecoilValue(iconSizeAtom);
+  const color = useRecoilValue(iconColorAtom);
+
   const allPlaceholders = [
     { name: "horse", Icon: Horse },
     { name: "airplane", Icon: Airplane },
@@ -81,7 +85,7 @@ const LoadingGrid = () => {
       {placeholders.map((item, index) => (
         <div key={index} className="icon-grid-item">
           <div className="icon-grid-item-content">
-            <item.Icon size={32} weight="regular" />
+            <item.Icon size={size} weight={weight} color={color} />
             <p>
               <span className="name">(loading)</span>
             </p>
