@@ -43,9 +43,11 @@ const options: WeightOption[] = [
   },
 ];
 
-type StyleInputProps = {};
+type StyleInputProps = {
+  isMobile?: boolean;
+};
 
-const StyleInput = (_: StyleInputProps) => {
+const StyleInput = ({ isMobile }: StyleInputProps) => {
   const [style, setStyle] = useRecoilState(iconWeightAtom);
 
   const currentStyle = useMemo(
@@ -78,13 +80,13 @@ const StyleInput = (_: StyleInputProps) => {
           onClick={() => methods.addItem(item)}
         >
           {item.icon}
-          {item.key}
+          <span className="label">{item.key}</span>
         </span>
       )}
       contentRenderer={({ state: { values } }) => (
         <div className="react-dropdown-select-content">
           {values[0].icon}
-          {values[0].key}
+          {!isMobile && <span className="label">{values[0].key}</span>}
         </div>
       )}
     />

@@ -13,6 +13,9 @@ import { useCSSVariables } from "@/hooks";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { isDarkThemeSelector } from "@/state";
 
+const mobile = /Android|iPhone|iPod|iPad|Opera Mini|IEMobile/i;
+const isMobile = mobile.test(window.navigator.userAgent);
+
 const errorFallback = <Notice message="Search error" />;
 const waitingFallback = <Notice type="none" message="" />;
 
@@ -71,7 +74,7 @@ const App: React.FC<any> = () => {
     <Fragment>
       <Header />
       <main>
-        <Toolbar />
+        <Toolbar isMobile={isMobile} />
         <ErrorBoundary fallback={errorFallback}>
           <Suspense fallback={waitingFallback}>
             <IconGrid />

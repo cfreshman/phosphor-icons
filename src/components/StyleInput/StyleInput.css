@@ -8,22 +8,40 @@
   background-color: var(--scrim);
   font-size: 16px;
   border: none !important;
+  cursor: pointer;
 }
 
-@media screen and (max-width: 558px) {
-  .react-dropdown-select {
-    width: 100% !important;
-  }
+.mobile-toolbar .react-dropdown-select {
+  width: 48px !important;
+  height: 48px !important;
+  padding: 12px !important;
+  justify-content: center !important;
+}
+
+.mobile-toolbar .react-dropdown-select-content {
+  justify-content: center !important;
+  padding: 0 !important;
+}
+
+.mobile-toolbar .react-dropdown-select-content svg {
+  margin: 0 !important;
+}
+
+.mobile-toolbar .react-dropdown-select-item {
+  padding: 8px 16px;
+  gap: 12px;
+  white-space: nowrap;
 }
 
 .react-dropdown-select-content {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  width: 100%;
 }
 
 .react-dropdown-select-content svg {
-  margin: 0 12px 0 0;
+  margin-right: 12px;
 }
 
 .react-dropdown-select:focus-within {
@@ -34,24 +52,32 @@
 }
 
 .react-dropdown-select-item {
-  color: #333;
+  color: var(--moss);
   height: 40px !important;
   display: flex;
   align-items: center;
-}
-
-.react-dropdown-select-item svg {
-  margin: 0 12px 0 24px;
+  gap: 12px;
+  padding: 0 16px;
 }
 
 .react-dropdown-select-input {
   color: #fff;
 }
+
+.react-dropdown-select-dropdown-handle {
+  display: flex !important;
+}
+
+.mobile-toolbar .react-dropdown-select-dropdown-handle {
+  display: none !important;
+}
+
 .react-dropdown-select-dropdown {
   position: absolute;
   left: 0;
   border: none;
-  width: 500px;
+  width: auto;
+  min-width: 176px;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -59,11 +85,10 @@
   max-height: 300px;
   overflow: auto;
   z-index: 9;
-  box-shadow: none;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
-.react-dropdown-select-item {
-  color: var(--moss);
-}
+
 .react-dropdown-select-item:hover {
   background-color: var(--acid) !important;
 }
@@ -82,4 +107,9 @@
 .react-dropdown-select-item.react-dropdown-select-item-disabled {
   background: #777;
   color: #ccc;
+}
+
+.react-dropdown-select-content .label,
+.react-dropdown-select-item .label {
+  pointer-events: none;
 }

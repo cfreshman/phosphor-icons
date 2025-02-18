@@ -13,9 +13,11 @@ import { showBookmarksOnlyAtom } from "@/state";
 import { supabase, signOutFromAll } from "@/lib/supabase";
 import "./Toolbar.css";
 
-type ToolbarProps = {};
+type ToolbarProps = {
+  isMobile: boolean;
+};
 
-const Toolbar: React.FC<ToolbarProps> = () => {
+const Toolbar: React.FC<ToolbarProps> = ({ isMobile }) => {
   const { fetchBookmarks } = useBookmarks();
   const [showBookmarksOnly, setShowBookmarksOnly] = useRecoilState(showBookmarksOnlyAtom);
   const [localBookmarksState, setLocalBookmarksState] = React.useState(false);
@@ -138,14 +140,28 @@ const Toolbar: React.FC<ToolbarProps> = () => {
 
   return (
     <>
-      <nav className="toolbar" id="toolbar">
-        <div className="toolbar-contents">
-          <StyleInput />
-          <SearchInput />
-          <SizeInput />
-          <ColorInput />
-          <SettingsActions />
-        </div>
+      <nav className={`toolbar ${isMobile ? 'mobile-toolbar' : ''}`}>
+        {isMobile ? (
+          <>
+            <div className="toolbar-controls">
+              <StyleInput isMobile={true} />
+              <SizeInput />
+              <ColorInput />
+            </div>
+            <div className="toolbar-search">
+              <SearchInput />
+              <SettingsActions />
+            </div>
+          </>
+        ) : (
+          <div className="toolbar-contents">
+            <StyleInput isMobile={false} />
+            <SearchInput />
+            <SizeInput />
+            <ColorInput />
+            <SettingsActions />
+          </div>
+        )}
         <div className="toolbar-features">
           <div className="feature-buttons">
             <button 
