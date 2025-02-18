@@ -20,14 +20,15 @@
   ],
   "repository": "github:phosphor-icons/homepage",
   "private": true,
-  "packageManager": "pnpm@9",
+  "packageManager": "pnpm@10.2.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "format": "prettier --write \"./src/**/*.{js,jsx,ts,tsx,json,vue}\"",
     "generate": "tsx scripts/generate.ts",
-    "sync-docs": "tsx scripts/sync-docs.ts"
+    "sync-docs": "tsx scripts/sync-docs.ts",
+    "embeddings": "tsx scripts/generate-embeddings.ts"
   },
   "dependencies": {
     "@phosphor-icons/core": "^2.1.1",
@@ -53,6 +54,7 @@
     "@types/react-dom": "^18.0.10",
     "@types/tinycolor2": "^1.4.3",
     "@vitejs/plugin-react": "^3.1.0",
+    "dotenv": "^16.4.7",
     "iconjar-exporter": "^1.0.10",
     "prettier": "^3.1.1",
     "tsx": "^4.7.3",
