@@ -59,10 +59,18 @@ const SearchInput = (_: SearchInputProps) => {
         !!value &&
           ReactGA.event({ category: "Search", action: "Query", label: value });
       }
-      !!value &&
-        void document
-          .getElementById("beacon")
-          ?.scrollIntoView({ block: "start", behavior: "smooth" });
+      if (!!value) {
+        const toolbar = document.querySelector('.toolbar');
+        const toolbarHeight = toolbar?.getBoundingClientRect().height || 0;
+        const beacon = document.getElementById("beacon");
+        if (beacon) {
+          const beaconRect = beacon.getBoundingClientRect();
+          window.scrollTo({
+            top: window.scrollY + beaconRect.top - toolbarHeight,
+            behavior: "smooth"
+          });
+        }
+      }
     },
     500,
     [value]

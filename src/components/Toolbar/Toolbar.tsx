@@ -140,7 +140,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ isMobile }) => {
 
   return (
     <>
-      <nav className={`toolbar ${isMobile ? 'mobile-toolbar' : ''}`}>
+      <nav id="toolbar" className={`toolbar ${isMobile ? 'mobile-toolbar' : ''}`}>
         {isMobile ? (
           <>
             <div className="toolbar-controls">
