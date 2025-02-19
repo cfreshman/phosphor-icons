@@ -6,6 +6,10 @@ import { supabase } from '@/lib/supabase';
 // Track if we've fetched bookmarks for the current session
 let currentSession: string | null = null;
 let isInitialFetchDone = false;
+let lastFetchAttempt = 0;
+let fetchAttempts = 0;
+const MAX_FETCH_ATTEMPTS = 3;
+const FETCH_COOLDOWN = 5000; // 5 seconds
 
 const LOCAL_STORAGE_KEY = 'phosphor-bookmarks';
 let currentAuthState: boolean | null = null;
@@ -23,6 +27,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     // Reset session tracking on auth state change
     currentSession = null;
     isInitialFetchDone = false;
+    fetchAttempts = 0;
     // Notify all subscribers
     authChangeCallbacks.forEach(cb => cb(isAuthenticated));
   }
@@ -65,6 +70,23 @@ export function useBookmarks() {
 
   const fetchBookmarks = useCallback(async () => {
     console.log('=== useBookmarks: fetchBookmarks called ===');
+    
+    // Check if we're within the cooldown period
+    const now = Date.now();
+    if (now - lastFetchAttempt < FETCH_COOLDOWN) {
+      console.log('Fetch attempt too soon, waiting for cooldown');
+      return;
+    }
+    
+    // Check if we've exceeded max attempts
+    if (fetchAttempts >= MAX_FETCH_ATTEMPTS) {
+      console.log('Max fetch attempts reached, stopping');
+      return;
+    }
+    
+    lastFetchAttempt = now;
+    fetchAttempts++;
+    
     try {
       // First try to get user session
       const { data: { session } } = await supabase.auth.getSession();
@@ -93,6 +115,7 @@ export function useBookmarks() {
         // Update session tracking
         currentSession = session.user.id;
         isInitialFetchDone = true;
+        fetchAttempts = 0; // Reset attempts on success
         // Clear local storage when we have cloud data
         localStorage.removeItem(LOCAL_STORAGE_KEY);
       } else {
@@ -114,10 +137,16 @@ export function useBookmarks() {
         // Update tracking for local state
         currentSession = null;
         isInitialFetchDone = true;
+        fetchAttempts = 0; // Reset attempts on success
       }
     } catch (error) {
       console.error('Error fetching bookmarks:', error);
-      setBookmarks([]);
+      // Don't clear bookmarks on error, keep existing state
+      if (fetchAttempts < MAX_FETCH_ATTEMPTS) {
+        console.log(`Fetch attempt ${fetchAttempts} failed, will retry after cooldown`);
+      } else {
+        console.log('Max fetch attempts reached, keeping existing bookmarks');
+      }
     }
   }, [setBookmarks]);
 
@@ -129,6 +158,7 @@ export function useBookmarks() {
       localStorage.removeItem(LOCAL_STORAGE_KEY);
       currentSession = null;
       isInitialFetchDone = false;
+      fetchAttempts = 0;
     } else {
       console.log('User signed in, loading bookmarks');
       fetchBookmarks();
@@ -153,14 +183,19 @@ export function useBookmarks() {
         metadata: { weight, size, color }
       };
 
-      // Optimistically update local state
-      setBookmarks(prev => [...prev, newBookmark]);
-      
       if (!session?.user) {
         // User is not logged in, save to localStorage
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([...bookmarks, newBookmark]));
+        const updatedBookmarks = [...bookmarks, newBookmark];
+        setBookmarks(updatedBookmarks);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedBookmarks));
         return;
       }
+
+      // Add user_id to bookmark for cloud storage
+      const bookmarkWithUser = {
+        ...newBookmark,
+        user_id: session.user.id
+      };
 
       // First check if bookmark already exists
       const { data: existing } = await supabase
@@ -174,21 +209,17 @@ export function useBookmarks() {
         return;
       }
 
-      // Add new bookmark to server with user_id
+      // Add new bookmark to server
       const { error: insertError } = await supabase
         .from('bookmarks')
-        .insert([{
-          ...newBookmark,
-          user_id: session.user.id
-        }])
+        .insert([bookmarkWithUser])
         .select()
         .single();
 
-      if (insertError) {
-        // Revert optimistic update on error
-        setBookmarks(prev => prev.filter(b => b.id !== newBookmark.id));
-        throw insertError;
-      }
+      if (insertError) throw insertError;
+
+      // Update local state after successful server update
+      setBookmarks(prev => [...prev, bookmarkWithUser]);
     } catch (error) {
       console.error('Error adding bookmark:', error);
       if (error instanceof Error) {
@@ -196,6 +227,32 @@ export function useBookmarks() {
       }
     }
   }, [weight, size, color, bookmarks, setBookmarks]);
+
+  // Add this new effect to sync local bookmarks when signing in
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Get local bookmarks
+      const localBookmarks = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (localBookmarks) {
+        const bookmarks = JSON.parse(localBookmarks);
+        // Upload each local bookmark
+        Promise.all(
+          bookmarks.map(async (bookmark: Bookmark) => {
+            try {
+              await addBookmark(bookmark.icon_name);
+            } catch (error) {
+              console.error('Error syncing bookmark:', bookmark.icon_name, error);
+            }
+          })
+        ).then(() => {
+          // Clear local storage after sync
+          localStorage.removeItem(LOCAL_STORAGE_KEY);
+          // Fetch updated bookmarks from server
+          fetchBookmarks();
+        });
+      }
+    }
+  }, [isAuthenticated, addBookmark, fetchBookmarks]);
 
   const removeBookmark = useCallback(async (iconName: string) => {
     try {
